@@ -161,8 +161,10 @@ class DistractingBackgroundEnv(control.Environment):
     sky_size = sky_height * sky_width * 3
     sky_address = self._env.physics.model.tex_adr[SKY_TEXTURE_INDEX]
 
-    sky_texture = self._env.physics.model.tex_rgb[sky_address:sky_address +
-                                                  sky_size].astype(np.float32)
+    tex_buffer = getattr(self._env.physics.model, 'tex_data', None)
+    if tex_buffer is None:
+      tex_buffer = self._env.physics.model.tex_rgb
+    sky_texture = tex_buffer[sky_address:sky_address + sky_size].astype(np.float32)
 
     if self._video_paths:
 
@@ -171,7 +173,7 @@ class DistractingBackgroundEnv(control.Environment):
         file_names = [
             os.path.join(path, fn.name)
             for path in self._video_paths
-            for fn in Path(path).glob('*/')
+            for fn in Path(path).glob('*')
         ]
         self._random_state.shuffle(file_names)
         # Load only the first n images for performance reasons.
@@ -180,7 +182,7 @@ class DistractingBackgroundEnv(control.Environment):
       else:
         # Randomly pick a video and load all images.
         video_path = self._random_state.choice(self._video_paths)
-        file_names = list(Path(video_path).glob('*/'))
+        file_names = list(Path(video_path).glob('*'))
         file_names = [x.name for x in file_names]
         if not self._dynamic:
           # Randomly pick a single static frame.
@@ -240,7 +242,10 @@ class DistractingBackgroundEnv(control.Environment):
       end = self._background.address + self._background.size
       texture = self._background.textures[self._current_img_index]
 
-      self._env.physics.model.tex_rgb[start:end] = texture
+      tex_buffer = getattr(self._env.physics.model, 'tex_data', None)
+      if tex_buffer is None:
+        tex_buffer = self._env.physics.model.tex_rgb
+      tex_buffer[start:end] = texture
       # Upload the new texture to the GPU. Note: we need to make sure that the
       # OpenGL context belonging to this Physics instance is the current one.
       with self._env.physics.contexts.gl.make_current() as ctx:
